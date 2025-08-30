@@ -13,9 +13,11 @@ import (
 	"github.com/arthurcorso/abantu/internal/config"
 	"github.com/arthurcorso/abantu/internal/proxy"
 	"github.com/arthurcorso/abantu/internal/rate"
+	"github.com/arthurcorso/abantu/internal/version"
 )
 
 func main() {
+	log.Printf("Abantu version %s", version.Version)
 	cfgPath := flag.String("config", "config.json", "path to config file")
 	apiAddr := flag.String("api", ":8080", "api listen addr")
 	flag.Parse()

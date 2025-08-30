@@ -9,6 +9,7 @@ import (
 
 	"github.com/arthurcorso/abantu/internal/cluster"
 	"github.com/arthurcorso/abantu/internal/config"
+	"github.com/arthurcorso/abantu/internal/version"
 )
 
 type APIServer struct {
@@ -31,6 +32,7 @@ func (a *APIServer) Start(addr string) error {
 	mux.HandleFunc("/time", func(w http.ResponseWriter, r *http.Request){ w.Write([]byte(time.Now().UTC().Format(time.RFC3339))) })
 	mux.HandleFunc("/hosts", a.handleHosts)
 	mux.HandleFunc("/hosts/", a.handleHost)
+	mux.HandleFunc("/version", func(w http.ResponseWriter, r *http.Request){ w.Write([]byte(version.Version)) })
 	srv := &http.Server{Addr: addr, Handler: mux}
 	return srv.ListenAndServe()
 }

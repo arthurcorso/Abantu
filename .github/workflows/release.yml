@@ -1,0 +1,58 @@
+name: Release
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'VERSION'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'go.mod'
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version
+        id: ver
+        run: echo "version=$(cat VERSION)" >> $GITHUB_OUTPUT
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build binaries
+        run: |
+          mkdir dist
+          for GOOS in linux darwin; do
+            for GOARCH in amd64 arm64; do
+              out="dist/abantu-${{ steps.ver.outputs.version }}-$GOOS-$GOARCH"
+              GOOS=$GOOS GOARCH=$GOARCH go build -ldflags "-X github.com/arthurcorso/abantu/internal/version.Version=${{ steps.ver.outputs.version }}" -o $out ./cmd/abantu
+            done
+          done
+
+      - name: Checksum
+        run: (cd dist && shasum -a 256 * > SHA256SUMS)
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.ver.outputs.version }}
+          name: Abantu v${{ steps.ver.outputs.version }}
+          body: |
+            Release version ${{ steps.ver.outputs.version }}.
+            Voir README pour l'utilisation.
+          files: |
+            dist/abantu-${{ steps.ver.outputs.version }}-linux-amd64
+            dist/abantu-${{ steps.ver.outputs.version }}-linux-arm64
+            dist/abantu-${{ steps.ver.outputs.version }}-darwin-amd64
+            dist/abantu-${{ steps.ver.outputs.version }}-darwin-arm64
+            dist/SHA256SUMS
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
