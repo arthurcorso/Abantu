@@ -6,7 +6,11 @@ import (
 	"time"
 	"sync/atomic"
 	"io"
+	"crypto/subtle"
+	"strings"
+	"log/slog"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/arthurcorso/abantu/internal/cluster"
 	"github.com/arthurcorso/abantu/internal/config"
 	"github.com/arthurcorso/abantu/internal/version"
@@ -25,16 +29,39 @@ func New(cfg *config.Config, cl *cluster.Cluster) *APIServer {
 func (a *APIServer) Start(addr string) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request){ w.Write([]byte("ok")) })
-	mux.HandleFunc("/cluster/state", func(w http.ResponseWriter, r *http.Request){
+	mux.HandleFunc("/cluster/state", a.authWrap("read", func(w http.ResponseWriter, r *http.Request){
 		st := a.cl.Snapshot()
 		json.NewEncoder(w).Encode(st)
-	})
-	mux.HandleFunc("/time", func(w http.ResponseWriter, r *http.Request){ w.Write([]byte(time.Now().UTC().Format(time.RFC3339))) })
-	mux.HandleFunc("/hosts", a.handleHosts)
-	mux.HandleFunc("/hosts/", a.handleHost)
+	}))
+	mux.HandleFunc("/time", a.authWrap("read", func(w http.ResponseWriter, r *http.Request){ w.Write([]byte(time.Now().UTC().Format(time.RFC3339))) }))
+	mux.HandleFunc("/hosts", a.authWrap("admin", func(w http.ResponseWriter, r *http.Request){ slog.Debug("api.request", "path", r.URL.Path, "method", r.Method); a.handleHosts(w,r) }))
+	mux.HandleFunc("/hosts/", a.authWrap("admin", func(w http.ResponseWriter, r *http.Request){ slog.Debug("api.request", "path", r.URL.Path, "method", r.Method); a.handleHost(w,r) }))
 	mux.HandleFunc("/version", func(w http.ResponseWriter, r *http.Request){ w.Write([]byte(version.Version)) })
+	mux.Handle("/metrics", promhttp.Handler())
 	srv := &http.Server{Addr: addr, Handler: mux}
 	return srv.ListenAndServe()
+}
+
+// authWrap applique token (header Authorization: Bearer <token>) et rôle minimal.
+func (a *APIServer) authWrap(requiredRole string, h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Si aucune config d'auth, tout autoriser
+		if len(a.cfg.APIAuth.Tokens) == 0 {
+			h(w,r); return
+		}
+		auth := r.Header.Get("Authorization")
+		if auth == "" || !strings.HasPrefix(auth, "Bearer ") { http.Error(w, "unauthorized", 401); return }
+		token := strings.TrimPrefix(auth, "Bearer ")
+		role, ok := a.cfg.APIAuth.Tokens[token]
+		if !ok || subtle.ConstantTimeCompare([]byte(role), []byte(role)) != 1 { http.Error(w, "unauthorized", 401); return }
+		if !roleAllows(role, requiredRole) { http.Error(w, "forbidden", 403); return }
+		h(w,r)
+	}
+}
+
+func roleAllows(userRole, required string) bool {
+	if userRole == "admin" { return true }
+	return userRole == required
 }
 
 // handleHosts: GET list, POST create/update

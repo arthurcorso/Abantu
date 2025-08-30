@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
-	"log"
 	"os"
 	"time"
 
@@ -14,28 +13,44 @@ import (
 	"github.com/arthurcorso/abantu/internal/proxy"
 	"github.com/arthurcorso/abantu/internal/rate"
 	"github.com/arthurcorso/abantu/internal/version"
+	"github.com/arthurcorso/abantu/internal/metrics"
+	"github.com/arthurcorso/abantu/internal/logging"
+	"github.com/prometheus/client_golang/prometheus"
+    "log/slog"
 )
 
 func main() {
-	log.Printf("Abantu version %s", version.Version)
 	cfgPath := flag.String("config", "config.json", "path to config file")
 	apiAddr := flag.String("api", ":8080", "api listen addr")
+	logFormat := flag.String("log.format", "text", "log format (text|json)")
+	logLevel := flag.String("log.level", "info", "log level (debug|info|warn|error)")
+	logFile := flag.String("log.file", "", "fichier de log (rotation simple par redémarrage)")
+	logSync := flag.Bool("log.sync", false, "forcer fsync après chaque ligne (impact perf)")
 	flag.Parse()
+	// Valeur par défaut implicite si non fournie
+	if *logFile == "" {
+		defaultPath := "logs/abantu.log"
+		logFile = &defaultPath
+	}
+	logging.Init(*logFormat, *logLevel, *logFile, *logSync)
+	slog.Info("abantu.start", "version", version.Version)
 	cfg, err := config.Load(*cfgPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			log.Printf("config file %s absent, génération d'un fichier par défaut", *cfgPath)
+			slog.Warn("config.missing", "path", *cfgPath, "action", "generate_default")
 			def := defaultConfig()
-			if err := writeDefaultConfig(*cfgPath, def); err != nil { log.Fatalf("écriture config défaut: %v", err) }
+			if err := writeDefaultConfig(*cfgPath, def); err != nil { slog.Error("config.default_write_error", "err", err); os.Exit(1) }
 			cfg = def
 		} else {
-			log.Fatalf("config: %v", err)
+			slog.Error("config.load_error", "err", err)
+			os.Exit(1)
 		}
 	}
 
 	clusterObj := cluster.New(cfg.Cluster.BindAddr, cfg.Cluster.Peers)
 	clusterObj.AttachConfig(cfg)
 	clusterObj.Start(cfg.GossipInterval())
+	metrics.MustRegister(prometheus.DefaultRegisterer)
 	// Publie la config initiale dans le cluster
 	for _, h := range cfg.Hosts {
 		b, _ := json.Marshal(h.Backends)
@@ -44,10 +59,11 @@ func main() {
 
 	rlim := rate.New(cfg.RedisAddr, cfg.RedisPassword)
 	pr := proxy.New(cfg, rlim, clusterObj)
-	go func(){ log.Fatal(pr.Start()) }()
+	go func(){ if err := pr.Start(); err != nil { slog.Error("proxy.start_error", "err", err); os.Exit(1) } }()
 
 	apiSrv := api.New(cfg, clusterObj)
-	log.Fatal(apiSrv.Start(*apiAddr))
+	slog.Info("api.start", "addr", *apiAddr)
+	if err := apiSrv.Start(*apiAddr); err != nil { slog.Error("api.error", "err", err); os.Exit(1) }
 }
 
 func defaultConfig() *config.Config {
