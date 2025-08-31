@@ -78,6 +78,7 @@ type Config struct {
 	HandshakeSec   HandshakeSecurity    `json:"handshake_security,omitempty"`
 	ProxyProtocol  bool                 `json:"proxy_protocol_enabled,omitempty"`
 	ProxyTLS       ProxyTLSConfig       `json:"proxy_tls,omitempty"`
+	ForwardProxyProtocol bool           `json:"forward_proxy_protocol_enabled,omitempty"` // envoie une ligne PROXY v1 aux backends
 	mu sync.RWMutex `json:"-"`
 	FilePath string `json:"-"`
 }
@@ -157,6 +158,7 @@ func (c *Config) Save() error {
 		HandshakeSec HandshakeSecurity `json:"handshake_security,omitempty"`
 		ProxyProtocol bool `json:"proxy_protocol_enabled,omitempty"`
 		ProxyTLS ProxyTLSConfig `json:"proxy_tls,omitempty"`
+		ForwardProxyProtocol bool `json:"forward_proxy_protocol_enabled,omitempty"`
 	}{
 		ListenHost: c.ListenHost,
 		ListenPort: c.ListenPort,
@@ -172,6 +174,7 @@ func (c *Config) Save() error {
 		HandshakeSec: c.HandshakeSec,
 		ProxyProtocol: c.ProxyProtocol,
 		ProxyTLS: c.ProxyTLS,
+		ForwardProxyProtocol: c.ForwardProxyProtocol,
 	}, "", "  ")
 	if err != nil { return err }
 	return os.WriteFile(c.FilePath, b, 0644)
