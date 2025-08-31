@@ -1,0 +1,32 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "abantu"
+    metrics_path: /metrics
+    scheme: http
+    static_configs:
+      - targets: ["localhost:8080"]
+        labels:
+          env: dev
+          service: abantu-proxy
+
+# Pour ajouter plusieurs nœuds proxy, ajoutez leurs adresses:
+#      - targets: ["node1:8080", "node2:8080", "node3:8080"]
+#        labels:
+#          env: prod
+#          service: abantu-proxy
+
+# Exemple de règle d'alerte (à mettre dans un fichier séparé puis rule_files):
+# groups:
+# - name: abantu_alerts
+#   rules:
+#   - alert: BackendFailuresRateHigh
+#     expr: rate(abantu_backend_failures_total[5m]) > 5
+#     for: 10m
+#     labels:
+#       severity: warning
+#     annotations:
+#       summary: "Taux élevé d'échecs de dial backend"
+#       description: "Plus de 5 échecs par 5m sur {{ $labels.backend }}"

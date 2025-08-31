@@ -1,0 +1,192 @@
+{
+  "__requires": [
+    {"type": "panel", "id": "timeseries", "name": "Time series", "version": "9.0.0"},
+    {"type": "panel", "id": "stat", "name": "Stat", "version": "9.0.0"},
+    {"type": "panel", "id": "bargauge", "name": "Bar gauge", "version": "9.0.0"},
+    {"type": "panel", "id": "table", "name": "Table", "version": "9.0.0"},
+    {"type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0"}
+  ],
+  "annotations": {"list": [{"builtIn": 1, "datasource": {"type": "grafana", "uid": "-- Grafana --"}, "enable": true, "hide": true, "iconColor": "rgba(0, 211, 255, 1)", "name": "Annotations & Alerts", "type": "dashboard"}]},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {"type":"prometheus","uid":"$DS_PROM"},
+      "type": "stat",
+      "title": "Connexions totales (toutes domaines)",
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
+  "options": {"reduceOptions": {"calcs": ["last"], "values": false}, "orientation": "auto", "textMode": "auto"},
+  "targets": [{"expr": "sum(abantu_connections_total{domain=~\"$domain\"}) or vector(0)", "legendFormat": "total", "refId": "A"}]
+    },
+    {
+      "datasource": {"type":"prometheus","uid":"$DS_PROM"},
+      "type": "stat",
+      "title": "Connexions actives",
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0},
+  "targets": [{"expr": "sum(abantu_connections_active{domain=~\"$domain\"}) or vector(0)", "legendFormat": "actives", "refId": "A"}],
+      "options": {"reduceOptions": {"calcs": ["last"], "fields": "", "values": false}}
+    },
+    {
+      "datasource": {"type":"prometheus","uid":"$DS_PROM"},
+      "type": "stat",
+      "title": "Handshakes bloqués",
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0},
+  "targets": [{"expr": "abantu_handshake_blocked_total or vector(0)", "legendFormat": "blocked", "refId": "A"}],
+      "options": {"reduceOptions": {"calcs": ["last"], "fields": "", "values": false}}
+    },
+    {
+      "datasource": {"type":"prometheus","uid":"$DS_PROM"},
+      "type": "stat",
+      "title": "Rate limited (total)",
+      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0},
+  "targets": [{"expr": "sum(abantu_ratelimited_total{domain=~\"$domain\"}) or vector(0)", "legendFormat": "ratelimited", "refId": "A"}],
+      "options": {"reduceOptions": {"calcs": ["last"], "fields": "", "values": false}}
+    },
+    {
+      "datasource": {"type":"prometheus","uid":"$DS_PROM"},
+      "type": "stat",
+      "title": "Gossip packets reçus",
+      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 0},
+  "targets": [{"expr": "abantu_gossip_packets_total or vector(0)", "legendFormat": "packets", "refId": "A"}],
+      "options": {"reduceOptions": {"calcs": ["last"], "fields": "", "values": false}}
+    },
+    {
+      "datasource": {"type":"prometheus","uid":"$DS_PROM"},
+      "type": "stat",
+      "title": "Signatures invalides",
+      "gridPos": {"h": 4, "w": 4, "x": 20, "y": 0},
+  "targets": [{"expr": "abantu_gossip_sig_invalid_total or vector(0)", "legendFormat": "invalid", "refId": "A"}],
+      "options": {"reduceOptions": {"calcs": ["last"], "fields": "", "values": false}, "colorMode": "value"}
+    },
+    {
+      "datasource": {"type":"prometheus","uid":"$DS_PROM"},
+      "type": "timeseries",
+      "title": "Connexions actives par backend",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+  "targets": [{"expr": "sum by (domain,backend)(abantu_connections_active{domain=~\"$domain\"}) or vector(0)", "legendFormat": "{{domain}} {{backend}}", "refId": "A"}],
+      "options": {"legend": {"showLegend": true, "placement": "bottom"}}
+    },
+    {
+      "datasource": {"type":"prometheus","uid":"$DS_PROM"},
+      "type": "timeseries",
+      "title": "Sélections backend par stratégie",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+  "targets": [{"expr": "rate(abantu_backend_selected_total{domain=~\"$domain\"}[5m]) or vector(0)", "legendFormat": "{{strategy}} {{domain}} -> {{backend}}", "refId": "A"}]
+    },
+    {
+      "datasource": {"type":"prometheus","uid":"$DS_PROM"},
+      "type": "timeseries",
+      "title": "Echecs dial backend (rate 5m)",
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 12},
+  "targets": [{"expr": "rate(abantu_backend_failures_total{domain=~\"$domain\"}[5m]) or vector(0)", "legendFormat": "{{domain}} {{backend}}", "refId": "A"}]
+    },
+    {
+      "datasource": {"type":"prometheus","uid":"$DS_PROM"},
+      "type": "timeseries",
+      "title": "Etat backends",
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 12},
+  "targets": [{"expr": "abantu_backend_state or vector(0)", "legendFormat": "{{backend}}", "refId": "A"}],
+      "options": {"legend": {"showLegend": true}}
+    },
+    {
+      "datasource": {"type":"prometheus","uid":"$DS_PROM"},
+      "type": "timeseries",
+      "title": "Latence dial (p95)",
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 12},
+      "targets": [
+  {"expr": "histogram_quantile(0.95, sum by (le,domain,backend)(rate(abantu_backend_dial_duration_seconds_bucket{domain=~\"$domain\"}[5m])))", "legendFormat": "p95 {{domain}} {{backend}}", "refId": "A"}
+      ]
+    },
+    {
+      "datasource": {"type":"prometheus","uid":"$DS_PROM"},
+      "type": "timeseries",
+      "title": "Durée connexion (p95)",
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 20},
+      "targets": [
+  {"expr": "histogram_quantile(0.95, sum by (le,domain,backend)(rate(abantu_connection_duration_seconds_bucket{domain=~\"$domain\"}[5m])))", "legendFormat": "p95 {{domain}} {{backend}}", "refId": "A"}
+      ]
+    },
+    {
+      "datasource": {"type":"prometheus","uid":"$DS_PROM"},
+      "type": "timeseries",
+      "title": "Status cache hit/miss (rate 5m)",
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 20},
+      "targets": [
+  {"expr": "rate(abantu_status_cache_hits_total[5m]) or vector(0)", "legendFormat": "hits", "refId": "A"},
+  {"expr": "rate(abantu_status_cache_miss_total[5m]) or vector(0)", "legendFormat": "miss", "refId": "B"}
+      ]
+    },
+    {
+      "datasource": {"type":"prometheus","uid":"$DS_PROM"},
+      "type": "timeseries",
+      "title": "Rate limited par domaine (rate 5m)",
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 20},
+      "targets": [
+  {"expr": "rate(abantu_ratelimited_total{domain=~\"$domain\"}[5m]) or vector(0)", "legendFormat": "{{domain}}", "refId": "A"}
+      ]
+    },
+    {
+      "datasource": {"type":"prometheus","uid":"$DS_PROM"},
+      "type": "table",
+      "title": "Top backends (sélections cumulées)",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 28},
+  "targets": [{"expr": "sum by (domain,backend,strategy)(abantu_backend_selected_total{domain=~\"$domain\"}) or vector(0)", "refId": "A"}],
+      "options": {"showHeader": true}
+    },
+    {
+      "datasource": {"type":"prometheus","uid":"$DS_PROM"},
+      "type": "bargauge",
+      "title": "Handshakes bloqués (cumul)",
+      "gridPos": {"h": 8, "w": 6, "x": 12, "y": 28},
+  "targets": [{"expr": "abantu_handshake_blocked_total or vector(0)", "refId": "A"}]
+    },
+    {
+      "datasource": {"type":"prometheus","uid":"$DS_PROM"},
+      "type": "bargauge",
+      "title": "Signatures invalides (cumul)",
+      "gridPos": {"h": 8, "w": 6, "x": 18, "y": 28},
+  "targets": [{"expr": "abantu_gossip_sig_invalid_total or vector(0)", "refId": "A"}]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": ["abantu", "minecraft", "proxy"],
+  "templating": {"list": [
+    {
+      "name": "DS_PROM",
+      "type": "datasource",
+      "label": "Prometheus",
+      "query": "prometheus",
+      "hide": 0,
+      "refresh": 1,
+      "options": [],
+      "current": {},
+      "regex": ""
+    },
+    {
+      "name": "domain",
+      "type": "query",
+      "label": "Domaine",
+      "datasource": {"type": "prometheus", "uid": "$DS_PROM"},
+      "query": "label_values(abantu_connections_total, domain)",
+      "refresh": 2,
+      "includeAll": true,
+      "multi": true,
+      "allValue": ".*",
+      "options": [],
+      "current": {},
+      "regex": ""
+    }
+  ]},
+  "time": {"from": "now-6h", "to": "now"},
+  "timepicker": {"refresh_intervals": ["5s","10s","30s","1m","5m","15m","1h"]},
+  "timezone": "",
+  "title": "Abantu Proxy Overview",
+  "version": 2,
+  "weekStart": ""
+}
