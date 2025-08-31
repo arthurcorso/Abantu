@@ -130,16 +130,6 @@ func (p *Proxy) handleConn(client net.Conn) {
 	client.SetDeadline(time.Time{})
 	connStart := time.Now()
 	backend.Write(hs.Raw)
-	// Si activé, on précède le flux backend par une ligne PROXY v1 contenant l'IP réelle du client.
-	if p.cfg.ForwardProxyProtocol {
-		clientAddr := client.RemoteAddr().(*net.TCPAddr)
-		backendAddrTCP := backend.RemoteAddr().(*net.TCPAddr)
-		family := "TCP4"
-		if clientAddr.IP.To4() == nil { family = "TCP6" }
-		// Format: PROXY TCP4 198.51.100.10 203.0.113.5 12345 25565\r\n
-		line := fmt.Sprintf("PROXY %s %s %s %d %d\r\n", family, clientAddr.IP.String(), backendAddrTCP.IP.String(), clientAddr.Port, backendAddrTCP.Port)
-		backend.Write([]byte(line))
-	}
 	var wg sync.WaitGroup; wg.Add(2)
 	metrics.ConnectionsActive.WithLabelValues(domain, backendAddr).Inc()
 	go func(){ defer wg.Done(); io.Copy(backend, br) }()
