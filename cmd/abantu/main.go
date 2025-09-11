@@ -77,6 +77,7 @@ func defaultConfig() *config.Config {
 		ServerName: "Abantu Proxy",
 		ProtocolVersion: 760,
 		Cluster: config.ClusterConfig{NodeID: "node-" + time.Now().Format("150405"), BindAddr: "127.0.0.1:14000", Peers: []string{}, GossipInterval: "3s"},
+	Bedrock: config.BedrockConfig{Enabled: false, ListenHost: "0.0.0.0", ListenPort: 19132, Hosts: []config.BedrockHost{{Label: "default", Strategy: "random", Backends: []config.Backend{{Host: "127.0.0.1", Port: 19133}}}}},
 		Hosts: []config.HostConfig{
 			{
 				Domain: "localhost",

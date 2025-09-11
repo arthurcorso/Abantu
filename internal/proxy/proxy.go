@@ -13,6 +13,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"github.com/arthurcorso/abantu/internal/cluster"
 	"github.com/arthurcorso/abantu/internal/config"
@@ -35,6 +36,7 @@ type Proxy struct {
 	pingCache map[string]pingEntry
 	hsMu sync.Mutex
 	hsCounters map[string]*tokenBucket
+	stopping atomic.Bool
 }
 
 type tokenBucket struct { tokens float64; last time.Time }
@@ -58,6 +60,8 @@ func (p *Proxy) Start() error {
 	}
 	if err != nil { return err }
 	slog.Info("proxy.listen", "addr", addr, "tls", p.cfg.ProxyTLS.Enabled)
+	// Start Bedrock UDP (non bloquant) si activé
+	if err := p.startBedrock(); err != nil { slog.Warn("bedrock.start_failed", "err", err) }
 	for { c, err := ln.Accept(); if err != nil { continue }; go p.handleConn(c) }
 }
 

@@ -78,6 +78,7 @@ type Config struct {
 	HandshakeSec   HandshakeSecurity    `json:"handshake_security,omitempty"`
 	ProxyProtocol  bool                 `json:"proxy_protocol_enabled,omitempty"`
 	ProxyTLS       ProxyTLSConfig       `json:"proxy_tls,omitempty"`
+	Bedrock        BedrockConfig        `json:"bedrock,omitempty"`
 	mu sync.RWMutex `json:"-"`
 	FilePath string `json:"-"`
 }
@@ -94,6 +95,11 @@ func Load(path string) (*Config, error) {
 	if c.ProtocolVersion == 0 { c.ProtocolVersion = 760 }
 	if c.HandshakeSec.PerSecond == 0 { c.HandshakeSec.PerSecond = 20 }
 	if c.HandshakeSec.Burst == 0 { c.HandshakeSec.Burst = 40 }
+	// Bedrock defaults
+	if c.Bedrock.Enabled {
+		if c.Bedrock.ListenHost == "" { c.Bedrock.ListenHost = "0.0.0.0" }
+		if c.Bedrock.ListenPort == 0 { c.Bedrock.ListenPort = 19132 }
+	}
 	for i := range c.Hosts { if c.Hosts[i].PingCacheTTL == "" { c.Hosts[i].PingCacheTTL = "5s" } }
 	c.FilePath = path
 	return &c, nil
@@ -157,6 +163,7 @@ func (c *Config) Save() error {
 		HandshakeSec HandshakeSecurity `json:"handshake_security,omitempty"`
 		ProxyProtocol bool `json:"proxy_protocol_enabled,omitempty"`
 		ProxyTLS ProxyTLSConfig `json:"proxy_tls,omitempty"`
+		Bedrock BedrockConfig `json:"bedrock,omitempty"`
 	}{
 		ListenHost: c.ListenHost,
 		ListenPort: c.ListenPort,
@@ -172,7 +179,22 @@ func (c *Config) Save() error {
 		HandshakeSec: c.HandshakeSec,
 		ProxyProtocol: c.ProxyProtocol,
 		ProxyTLS: c.ProxyTLS,
+		Bedrock: c.Bedrock,
 	}, "", "  ")
 	if err != nil { return err }
 	return os.WriteFile(c.FilePath, b, 0644)
+}
+
+// Bedrock configuration (UDP)
+type BedrockConfig struct {
+	Enabled    bool          `json:"enabled"`
+	ListenHost string        `json:"listen_host"`
+	ListenPort int           `json:"listen_port"`
+	Hosts      []BedrockHost `json:"hosts"`
+}
+
+type BedrockHost struct {
+	Label    string    `json:"label"`
+	Strategy string    `json:"strategy,omitempty"` // round_robin, random, weighted_random, least_conn (least_conn pas pertinent en UDP, ignoré)
+	Backends []Backend `json:"backends"`
 }
